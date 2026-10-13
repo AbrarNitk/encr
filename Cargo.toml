@@ -1,0 +1,31 @@
+[package]
+name = "encr"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Fast, streaming, authenticated encryption for files and directories"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+aes-gcm = { version = "0.11.1", default-features = false, features = ["aes", "zeroize"] }
+anyhow = "1.0.104"
+argon2 = { version = "0.6.0", default-features = false, features = ["alloc", "zeroize"] }
+base64 = "0.23.1"
+clap = { version = "4.6.7", features = ["derive", "env"] }
+dunce = "1.0.5"
+hkdf = "0.13.0"
+rand = "0.10.3"
+rpassword = "7.5.4"
+sha2 = "0.11.1"
+tar = { version = "0.4.46", default-features = false }
+tempfile = "3.27.0"
+thiserror = "2.0.21"
+walkdir = "2.5.0"
+zeroize = "1.9.1"
+zstd = { version = "0.14.2", default-features = false, features = ["zstdmt"] }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
