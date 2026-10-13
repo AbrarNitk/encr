@@ -1,0 +1,54 @@
+name: Release
+
+"on":
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  BINARY_NAME: encr
+
+jobs:
+  release:
+    name: Release (${{ matrix.target_name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target_name: linux
+            extension: ""
+          - os: macos-latest
+            target_name: macos
+            extension: ""
+          - os: windows-latest
+            target_name: windows
+            extension: ".exe"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Package binary
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp "target/release/${BINARY_NAME}${{ matrix.extension }}" \
+             "dist/${BINARY_NAME}-${{ matrix.target_name }}${{ matrix.extension }}"
+
+      - name: Publish GitHub Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/${{ env.BINARY_NAME }}-${{ matrix.target_name }}${{ matrix.extension }}
+          generate_release_notes: true
