@@ -14,7 +14,7 @@ Fast, streaming, authenticated encryption for files and directories on Windows, 
 - **In-memory inspection (`show`):** Decrypts and decompresses archive headers on the fly to list files and sizes without writing anything to disk.
 - **Flexible key derivation:** Accepts 256-bit random keys directly, or passphrases stretched with Argon2id. Every file uses a unique HKDF-derived subkey.
 - **Atomic writes:** Writes to a hidden staging file or directory, moving it into place only after the full stream authenticates. Refuses to overwrite existing files without `--force`.
-- **Cross-platform:** Native path handling across Windows, macOS, and Linux, including Windows verbatim (`\\?\`) prefixes and drive letters.
+- **Cross-platform:** Native path handling across Windows, macOS, and Linux, including Windows verbatim (`\\?\`) prefixes, drive letters (`C:\`), and backslashes.
 
 ---
 
@@ -26,15 +26,48 @@ Download the latest release for your platform from the **GitHub Releases** or **
 
 | Platform | Binary |
 | :--- | :--- |
+| **Windows (x64)** | `encr-windows.exe` |
 | **Linux (x86_64)** | `encr-linux` |
 | **macOS (Universal / Apple Silicon)** | `encr-macos` |
-| **Windows (x64)** | `encr-windows.exe` |
 
-On Linux and macOS, make the downloaded binary executable and move it into your `PATH`:
+#### Linux & macOS
+
+Make the downloaded binary executable and move it into your `PATH`:
 
 ```bash
 chmod +x encr-linux
 sudo mv encr-linux /usr/local/bin/encr
+```
+
+#### Windows (PowerShell)
+
+1. Rename the downloaded `encr-windows.exe` to `encr.exe`.
+2. Move it to a folder in your `PATH` (such as `$HOME\bin`), or add your folder to the user `PATH`:
+
+```powershell
+# Create a user bin folder if it doesn't exist
+New-Item -ItemType Directory -Force -Path "$HOME\bin"
+
+# Move and rename the binary into $HOME\bin\encr.exe
+Move-Item -Path ".\encr-windows.exe" -Destination "$HOME\bin\encr.exe"
+
+# Add $HOME\bin to your User PATH (one-time setup)
+[Environment]::SetEnvironmentVariable(
+    "Path",
+    [Environment]::GetEnvironmentVariable("Path", "User") + ";$HOME\bin",
+    "User"
+)
+$env:Path += ";$HOME\bin"
+
+# Verify installation
+encr --version
+```
+
+Alternatively, on Windows Command Prompt (`cmd.exe`):
+```cmd
+mkdir "%USERPROFILE%\bin"
+move encr-windows.exe "%USERPROFILE%\bin\encr.exe"
+setx PATH "%PATH%;%USERPROFILE%\bin"
 ```
 
 ### Build From Source
@@ -49,7 +82,8 @@ Or build an optimized release binary manually:
 
 ```bash
 cargo build --release --locked
-# Binary is located at target/release/encr
+# Linux / macOS: target/release/encr
+# Windows:       target\release\encr.exe
 ```
 
 ---
@@ -102,57 +136,88 @@ encr generate-password --level medium --length 20
 encr generate-password --level strong --length 32
 ```
 
+---
+
 ### 2. Encrypting Files and Directories
 
-Encrypt a single file using a generated key:
+#### Linux / macOS (bash / zsh)
 
 ```bash
+# Single file
 encr encrypt \
   --input database.sqlite \
   --output database.sqlite.enc \
   --key "pxaAkP64TeMYzDHi1VgkrYc4-eQnJhgm1r0yb51d7FY"
-```
 
-Encrypt a directory. It will be compressed (`zstd`) and encrypted in a single stream:
-
-```bash
+# Entire directory (compressed with zstd and encrypted)
 encr encrypt \
   --input ./project-backup \
   --output project-backup.enc \
   --key "pxaAkP64TeMYzDHi1VgkrYc4-eQnJhgm1r0yb51d7FY"
-```
 
-Encrypt using a passphrase prompted interactively (no key on the command line):
-
-```bash
+# Prompt interactively for a passphrase (hidden input, no key in shell history)
 encr encrypt -i ./photos -o photos.enc
-# Key or passphrase: 
-# Confirm: 
-```
 
-Encrypt using an environment variable (useful in scripts and CI/CD):
-
-```bash
+# Using the ENCR_KEY environment variable
 export ENCR_KEY="correct horse battery staple"
 encr encrypt -i dataset.csv -o dataset.csv.enc
 ```
 
-Adjust the compression level for a directory archive (1–19, default: 3):
+#### Windows (PowerShell)
 
-```bash
-encr encrypt -i ./logs -o logs.enc --compression-level 9
+In PowerShell, use backtick (`` ` ``) for multiline commands, standard Windows paths, or `$env:ENCR_KEY`:
+
+```powershell
+# Single file
+encr.exe encrypt `
+  --input "C:\Data\database.sqlite" `
+  --output "C:\Backups\database.sqlite.enc" `
+  --key "pxaAkP64TeMYzDHi1VgkrYc4-eQnJhgm1r0yb51d7FY"
+
+# Entire directory
+encr.exe encrypt `
+  --input ".\project-backup" `
+  --output ".\project-backup.enc" `
+  --key "pxaAkP64TeMYzDHi1VgkrYc4-eQnJhgm1r0yb51d7FY"
+
+# Using the ENCR_KEY environment variable in PowerShell
+$env:ENCR_KEY = "correct horse battery staple"
+encr.exe encrypt -i ".\dataset.csv" -o ".\dataset.csv.enc"
 ```
+
+#### Windows (Command Prompt / cmd.exe)
+
+In Command Prompt, use caret (`^`) for multiline commands, or `set` for environment variables:
+
+```cmd
+:: Using environment variable
+set ENCR_KEY=correct horse battery staple
+encr.exe encrypt -i C:\Data\dataset.csv -o C:\Backups\dataset.csv.enc
+
+:: Direct command
+encr.exe encrypt ^
+  --input "C:\Data\project-backup" ^
+  --output "C:\Backups\project-backup.enc" ^
+  --key "pxaAkP64TeMYzDHi1VgkrYc4-eQnJhgm1r0yb51d7FY"
+```
+
+---
 
 ### 3. Inspecting Archives Without Decrypting to Disk (`show`)
 
 Inspect the contents and verify the authentication tag of an encrypted directory without writing any files to disk:
 
+**Linux / macOS:**
 ```bash
 encr show --input project-backup.enc --key "pxaAkP64TeMYzDHi1VgkrYc4-eQnJhgm1r0yb51d7FY"
 ```
 
-Output:
+**Windows (PowerShell):**
+```powershell
+encr.exe show --input ".\project-backup.enc" --key "pxaAkP64TeMYzDHi1VgkrYc4-eQnJhgm1r0yb51d7FY"
+```
 
+Sample output:
 ```text
 TYPE        SIZE  PATH
 file       1.2 KiB  Cargo.toml
@@ -165,28 +230,43 @@ link           -  README -> Cargo.toml
 ```
 
 For single-file payloads, `show` verifies data integrity and prints the plaintext size:
-
 ```bash
 encr show -i database.sqlite.enc
 # Single file: 42.0 MiB (44040192 bytes), integrity verified
 ```
 
+---
+
 ### 4. Decrypting
 
-Decrypt a file or restore an entire directory tree:
+#### Linux / macOS
 
 ```bash
+# Decrypt directory archive
 encr decrypt \
   --input project-backup.enc \
   --output ./restored-project \
   --key "pxaAkP64TeMYzDHi1VgkrYc4-eQnJhgm1r0yb51d7FY"
-```
 
-Overwrite an existing file or merge into an existing directory:
-
-```bash
+# Overwrite existing target with --force
 encr decrypt -i database.sqlite.enc -o database.sqlite --force
 ```
+
+#### Windows (PowerShell / CMD)
+
+```powershell
+# Restore directory archive
+encr.exe decrypt `
+  --input ".\project-backup.enc" `
+  --output "C:\Restored\project" `
+  --key "pxaAkP64TeMYzDHi1VgkrYc4-eQnJhgm1r0yb51d7FY"
+
+# Overwrite existing destination with --force
+encr.exe decrypt -i ".\database.sqlite.enc" -o "C:\Data\database.sqlite" --force
+```
+
+> [!NOTE]
+> **Windows Symlinks Note:** If an archive contains Unix symbolic links, extracting those links on Windows requires either **Developer Mode** enabled or running PowerShell / Command Prompt as **Administrator** due to Windows security policies on symlink creation.
 
 ---
 
